@@ -2,5 +2,10 @@
 name = "haru"
 version = "0.0.1"
 edition = "2024"
+description = "Save clipboard images to files on macOS and Linux"
+license = "MIT"
 
 [dependencies]
+arboard = { version = "3", default-features = false, features = ["image-data", "wayland-data-control"] }
+clap = { version = "4", features = ["derive"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "gif", "tiff", "bmp"] }

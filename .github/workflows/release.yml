@@ -1,0 +1,102 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Check and test
+        run: |
+          cargo fmt --check
+          cargo clippy --locked --all-targets -- -D warnings
+          cargo test --locked
+      - name: Build
+        run: |
+          cargo build --locked --release --target x86_64-unknown-linux-gnu
+          strip target/x86_64-unknown-linux-gnu/release/haru
+          cp target/x86_64-unknown-linux-gnu/release/haru haru-linux-x86_64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: haru-linux-x86_64
+          path: haru-linux-x86_64
+          if-no-files-found: error
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: apple-actions/import-codesign-certs@5142e029c445c10ffc7149d172e540235a065466 # v7
+        with:
+          p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
+          p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - name: Build universal binary
+        run: |
+          cargo build --locked --release --target aarch64-apple-darwin
+          cargo build --locked --release --target x86_64-apple-darwin
+          lipo -create target/aarch64-apple-darwin/release/haru \
+            target/x86_64-apple-darwin/release/haru -output haru-macos-universal
+      - name: Sign and notarize
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+        run: |
+          set -euo pipefail
+          : "${APPLE_ID:?Missing APPLE_ID}"
+          : "${APPLE_TEAM_ID:?Missing APPLE_TEAM_ID}"
+          : "${APPLE_PASSWORD:?Missing APPLE_PASSWORD}"
+          : "${APPLE_SIGNING_IDENTITY:?Missing APPLE_SIGNING_IDENTITY}"
+          codesign --force --sign "$APPLE_SIGNING_IDENTITY" \
+            --options runtime --timestamp haru-macos-universal
+          codesign --verify --strict --verbose=2 haru-macos-universal
+          ditto -c -k --keepParent haru-macos-universal haru.zip
+          xcrun notarytool submit haru.zip --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" --password "$APPLE_PASSWORD" \
+            --wait --output-format json > "$RUNNER_TEMP/notarization.json"
+          python3 - "$RUNNER_TEMP/notarization.json" <<'PY'
+          import json
+          import sys
+          with open(sys.argv[1]) as result:
+              report = json.load(result)
+          if report.get("status") != "Accepted":
+              raise SystemExit(f"Notarization failed: {report}")
+          PY
+          # Bare binaries cannot be stapled; Gatekeeper retrieves the ticket online.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: haru-macos-universal
+          path: haru-macos-universal
+          if-no-files-found: error
+
+  release:
+    needs: [build-linux, build-macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Generate checksums and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        working-directory: dist
+        run: |
+          sha256sum haru-linux-x86_64 haru-macos-universal > SHA256SUMS
+          gh release create "$TAG" haru-linux-x86_64 haru-macos-universal SHA256SUMS \
+            --verify-tag --title "$TAG" --generate-notes
