@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-26.04
     steps:
       - uses: actions/checkout@v6.0.3
+      - name: Set version
+        run: echo "VERSION=${{ github.ref_name }}" | sed 's/^v//' >> "$GITHUB_ENV"
       - uses: dtolnay/rust-toolchain@stable
       - name: Check and test
         run: |
@@ -22,11 +24,11 @@ jobs:
         run: |
           cargo build --locked --release --target x86_64-unknown-linux-gnu
           strip target/x86_64-unknown-linux-gnu/release/haru
-          cp target/x86_64-unknown-linux-gnu/release/haru haru-linux-x86_64
+          cp target/x86_64-unknown-linux-gnu/release/haru "haru-${VERSION}-linux-x86_64"
       - uses: actions/upload-artifact@v7.0.1
         with:
           name: haru-linux-x86_64
-          path: haru-linux-x86_64
+          path: haru-${{ env.VERSION }}-linux-x86_64
           if-no-files-found: error
 
   build-macos:
@@ -37,6 +39,8 @@ jobs:
           p12-file-base64: ${{ secrets.APPLE_CERTIFICATE }}
           p12-password: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
       - uses: actions/checkout@v6.0.3
+      - name: Set version
+        run: echo "VERSION=${{ github.ref_name }}" | sed 's/^v//' >> "$GITHUB_ENV"
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
@@ -45,7 +49,7 @@ jobs:
           cargo build --locked --release --target aarch64-apple-darwin
           cargo build --locked --release --target x86_64-apple-darwin
           lipo -create target/aarch64-apple-darwin/release/haru \
-            target/x86_64-apple-darwin/release/haru -output haru-macos-universal
+            target/x86_64-apple-darwin/release/haru -output "haru-${VERSION}-macos-universal"
       - name: Sign and notarize
         env:
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
@@ -59,9 +63,9 @@ jobs:
           : "${APPLE_PASSWORD:?Missing APPLE_PASSWORD}"
           : "${APPLE_SIGNING_IDENTITY:?Missing APPLE_SIGNING_IDENTITY}"
           codesign --force --sign "$APPLE_SIGNING_IDENTITY" \
-            --options runtime --timestamp haru-macos-universal
-          codesign --verify --strict --verbose=2 haru-macos-universal
-          ditto -c -k --keepParent haru-macos-universal haru.zip
+            --options runtime --timestamp "haru-${VERSION}-macos-universal"
+          codesign --verify --strict --verbose=2 "haru-${VERSION}-macos-universal"
+          ditto -c -k --keepParent "haru-${VERSION}-macos-universal" haru.zip
           xcrun notarytool submit haru.zip --apple-id "$APPLE_ID" \
             --team-id "$APPLE_TEAM_ID" --password "$APPLE_PASSWORD" \
             --wait --output-format json > "$RUNNER_TEMP/notarization.json"
@@ -77,7 +81,7 @@ jobs:
       - uses: actions/upload-artifact@v7.0.1
         with:
           name: haru-macos-universal
-          path: haru-macos-universal
+          path: haru-${{ env.VERSION }}-macos-universal
           if-no-files-found: error
 
   release:
@@ -97,6 +101,7 @@ jobs:
           TAG: ${{ github.ref_name }}
         working-directory: dist
         run: |
-          sha256sum haru-linux-x86_64 haru-macos-universal > SHA256SUMS
-          gh release create "$TAG" haru-linux-x86_64 haru-macos-universal SHA256SUMS \
+          VERSION="${TAG#v}"
+          sha256sum "haru-${VERSION}-linux-x86_64" "haru-${VERSION}-macos-universal" > SHA256SUMS
+          gh release create "$TAG" haru-"$VERSION"-* SHA256SUMS \
             --verify-tag --title "$TAG" --generate-notes

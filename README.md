@@ -5,19 +5,24 @@ Save an image from the system clipboard to a file. A small Rust alternative to
 
 ## Install
 
-Download `haru-macos-universal` (Apple Silicon and Intel) or `haru-linux-x86_64`
-from this repository's GitHub Releases. Verify the download against `SHA256SUMS`,
-then install it as `haru` in a directory on your PATH:
+Download `haru-<version>-macos-universal` (Apple Silicon and Intel) or
+`haru-<version>-linux-x86_64` from this repository's GitHub Releases. Verify the
+download against `SHA256SUMS`, then install it as `haru` in a directory on your PATH:
 
 ```sh
-chmod +x haru-macos-universal
-install -m 755 haru-macos-universal ~/.local/bin/haru
+chmod +x haru-0.1.0-macos-universal
+install -m 755 haru-0.1.0-macos-universal ~/.local/bin/haru
 ```
 
 Create `~/.local/bin` first if necessary. On Linux, substitute
-`haru-linux-x86_64`. macOS release binaries are Developer ID signed and notarized;
+`haru-0.1.0-linux-x86_64`. Or install via Homebrew:
+
+```sh
+brew install ruaylabs/tap/haru
+```
+
+macOS release binaries are Developer ID signed and notarized;
 Apple's notarization ticket is checked online (bare binaries cannot be stapled).
-Homebrew packaging is not yet provided.
 
 ## Usage
 
