@@ -1,6 +1,6 @@
 [package]
 name = "haru"
-version = "0.0.1"
+version = "0.1.0"
 edition = "2024"
 description = "Save clipboard images to files on macOS and Linux"
 license = "MIT"
