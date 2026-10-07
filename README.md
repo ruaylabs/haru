@@ -24,6 +24,28 @@ brew install ruaylabs/tap/haru
 macOS release binaries are Developer ID signed and notarized;
 Apple's notarization ticket is checked online (bare binaries cannot be stapled).
 
+### NixOS
+
+The Linux release binary dynamically links glibc, which NixOS does not provide in
+standard FHS locations. Enable [nix-ld][nixld] system-wide to run it directly:
+
+```nix
+# configuration.nix
+programs.nix-ld.enable = true;
+```
+
+If additional libraries are missing at runtime (for example `libwayland-client`
+for Wayland), add them with `programs.nix-ld.libraries`. To avoid a system-wide
+change, build from source instead; a local Cargo build links against the Nix
+toolchain's glibc and runs without nix-ld:
+
+```sh
+nix-shell -p cargo rustc pkg-config
+just build
+```
+
+[nixld]: https://github.com/Mic92/nix-ld
+
 ## Usage
 
 Copy an image, then run:
