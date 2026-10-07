@@ -43,6 +43,21 @@ run *args:
 install:
     cargo install --locked --path .
 
+# Print the package version.
+version:
+    @grep -m 1 '^version = ' Cargo.toml | sed 's/^version = "\([^"]*\)".*/\1/'
+
+# Set the version, update Cargo.lock, commit, and tag (for example: just bump-version 0.2.0).
+bump-version version:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    version={{quote(version)}}
+    sed -i'' -e "/^\[package\]$/,/^\[/ s/^version = \".*\"/version = \"$version\"/" Cargo.toml
+    cargo check
+    git add Cargo.toml Cargo.lock
+    if ! git diff --cached --quiet -- Cargo.toml Cargo.lock; then git commit --only -m "chore(release): bump v$version" -- Cargo.toml Cargo.lock; fi
+    git tag -a "v$version" -m "v$version"
+
 # Remove build artifacts.
 clean:
     cargo clean
