@@ -14,6 +14,18 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  nix:
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: DeterminateSystems/nix-installer-action@3138316df39ed29be04236d7ffc686fa525866aa # v23
+      - name: Build the flake package
+        run: nix build
+      - name: Smoke-test the built binary
+        run: ./result/bin/haru --version
+      - name: Check the flake outputs
+        run: nix flake show
+
   rust:
     name: Rust (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
