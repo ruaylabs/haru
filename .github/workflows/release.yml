@@ -15,6 +15,13 @@ jobs:
       - name: Set version
         run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+      - name: Validate release version
+        run: |
+          PACKAGE_VERSION=$(cargo metadata --locked --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "haru") | .version')
+          if [ "$VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "Release version $VERSION does not match Cargo.toml version $PACKAGE_VERSION" >&2
+            exit 1
+          fi
       - name: Check and test
         run: |
           cargo fmt --check
@@ -44,6 +51,13 @@ jobs:
       - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
         with:
           targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - name: Validate release version
+        run: |
+          PACKAGE_VERSION=$(cargo metadata --locked --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "haru") | .version')
+          if [ "$VERSION" != "$PACKAGE_VERSION" ]; then
+            echo "Release version $VERSION does not match Cargo.toml version $PACKAGE_VERSION" >&2
+            exit 1
+          fi
       - name: Build universal binary
         run: |
           cargo build --locked --release --target aarch64-apple-darwin
