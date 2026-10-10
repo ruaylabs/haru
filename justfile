@@ -52,7 +52,7 @@ version:
 bump-version version:
     #!/usr/bin/env bash
     set -euo pipefail
-    version={{quote(version)}}
+    version={{ quote(version) }}
     sed -i'' -e "/^\[package\]$/,/^\[/ s/^version = \".*\"/version = \"$version\"/" Cargo.toml
     cargo check
     git add Cargo.toml Cargo.lock
