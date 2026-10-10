@@ -36,8 +36,9 @@ test:
 verify: fmt-check check lint test
 
 # Run the CLI with arguments (for example: just run screenshot.png).
+[positional-arguments]
 run *args:
-    cargo run --locked -- {{args}}
+    cargo run --locked -- "$@"
 
 # Install the CLI using Cargo.
 install:
